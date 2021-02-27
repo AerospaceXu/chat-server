@@ -88,7 +88,7 @@ func (user *User) sendMessage(content string) {
 			}
 		}
 	} else if targetUser, msg, ok := user.getMessageIsToPersonal(content); ok {
-		targetUser.showMessage(msg)
+		targetUser.showMessage("[" + user.name + "]: " + msg)
 	} else {
 		user.server.broadMessage(user, content)
 	}
