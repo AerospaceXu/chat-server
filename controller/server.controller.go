@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 // Server 服务类
@@ -55,6 +56,15 @@ func (server *Server) handleUserLogin(connection net.Conn) {
 	user := NewUser(connection, server)
 	fmt.Println("登录成功", user.name)
 	user.online()
+	isUserAlive := make(chan bool)
+
+	defer func() {
+		user.server.mapLock.Lock()
+		delete(server.onlineMap, user.name)
+		user.server.mapLock.Unlock()
+		close(user.channel)
+		connection.Close()
+	}()
 
 	go func() {
 		buf := make([]byte, 4096)
@@ -71,12 +81,20 @@ func (server *Server) handleUserLogin(connection net.Conn) {
 			}
 
 			msg := string(buf[:n-1])
-
 			user.sendMessage(msg)
+			isUserAlive <- true
 		}
 	}()
 
-	select {}
+	for {
+		select {
+		case <-isUserAlive:
+		case <-time.After(time.Second * 100):
+			user.showMessage("因长时间未活动，您已被踢出聊天")
+			user.sendMessage("因为 [" + user.name + "] 长时间未活动，已被移出聊天室")
+			return
+		}
+	}
 }
 
 // broadMessage 向当前 user 的 channel 中广播消息
