@@ -62,8 +62,7 @@ func (user *User) offline() {
 
 // sendMessage user sendMessage to everybody
 func (user *User) sendMessage(content string) {
-	switch content {
-	case "who":
+	if content == "who" {
 		onlineUsers := ""
 		user.server.mapLock.Lock()
 		for _, onlineUser := range user.server.onlineMap {
@@ -71,7 +70,15 @@ func (user *User) sendMessage(content string) {
 		}
 		user.server.mapLock.Unlock()
 		user.showMessage(onlineUsers)
-	default:
+	} else if len(content) >= 7 && content[:7] == "rename|" {
+		newUserName := content[7:]
+		if len(newUserName) < 2 {
+			user.showMessage("用户名至少为 2 个字符！！！")
+		} else {
+			user.name = newUserName
+			user.showMessage("修改成功！")
+		}
+	} else {
 		user.server.broadMessage(user, content)
 	}
 }
