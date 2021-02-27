@@ -3,6 +3,7 @@ package server
 import (
 	"chat-server/user"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -60,6 +61,26 @@ func (server *Server) handleUserLogin(connection net.Conn) {
 	server.mapLock.Unlock()
 
 	server.broadMessage(user, "已上线")
+
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := connection.Read(buf)
+			if n == 0 {
+				server.broadMessage(user, "下线")
+				return
+			}
+
+			if err != nil && err != io.EOF {
+				fmt.Println("connection read error: ", err)
+				return
+			}
+
+			msg := string(buf[:n-1])
+
+			server.broadMessage(user, msg)
+		}
+	}()
 
 	select {}
 }
