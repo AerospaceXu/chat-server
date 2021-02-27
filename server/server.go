@@ -38,7 +38,7 @@ func (server *Server) Start() {
 	}
 	defer listener.Close()
 
-	go server.ListenMessages()
+	go server.listenMessages()
 
 	for {
 		connection, err := listener.Accept()
@@ -46,44 +46,42 @@ func (server *Server) Start() {
 			fmt.Println("accept error: ", err)
 			continue
 		}
-
-		go server.Handler(connection)
+		go server.handleUserLogin(connection)
 	}
 }
 
-// Handler 处理连接
-func (server *Server) Handler(connection net.Conn) {
+// handleUserLogin deal user login
+func (server *Server) handleUserLogin(connection net.Conn) {
 	user := user.NewUser(connection)
-	fmt.Println("登录成功", user.GetName())
-	userName := user.GetName()
+	fmt.Println("登录成功", user.Name)
+
 	server.mapLock.Lock()
-	server.onlineMap[userName] = user
+	server.onlineMap[user.Name] = user
 	server.mapLock.Unlock()
 
-	server.BroadMessage(user, "已上线")
+	server.broadMessage(user, "已上线")
 
 	select {}
 }
 
-// BroadMessage 向当前 user 的 channel 中广播消息
-func (server *Server) BroadMessage(currentUser *user.User, msg string) {
-	userName := currentUser.GetName()
-	userAddress := currentUser.GetAddress()
-
-	currentMsg := "[" + userName + "] " + userAddress + " ：" + msg
-
+// broadMessage 向当前 user 的 channel 中广播消息
+func (server *Server) broadMessage(currentUser *user.User, msg string) {
+	currentMsg :=
+		"[" + currentUser.Name + "] " + currentUser.Address + ": " + msg
 	server.message <- currentMsg
 }
 
-// ListenMessages 监听所有的 message 改变
-func (server *Server) ListenMessages() {
+// listenMessages listen server.message`s change and send to each user
+func (server *Server) listenMessages() {
 	for {
-		msg := <-server.message
-		server.mapLock.Lock()
-		for _, user := range server.onlineMap {
-			userChannel := user.GetChannel()
-			userChannel <- msg
+		msg, ok := <-server.message
+		if ok {
+			server.mapLock.Lock()
+			for _, user := range server.onlineMap {
+				userChannel := user.Channel
+				userChannel <- msg
+			}
+			server.mapLock.Unlock()
 		}
-		server.mapLock.Unlock()
 	}
 }
