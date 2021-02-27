@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net"
+	"strings"
 )
 
 // User struct
@@ -86,7 +87,23 @@ func (user *User) sendMessage(content string) {
 				user.name = newUserName
 			}
 		}
+	} else if targetUser, msg, ok := user.getMessageIsToPersonal(content); ok {
+		targetUser.showMessage(msg)
 	} else {
 		user.server.broadMessage(user, content)
 	}
+}
+
+func (user *User) getMessageIsToPersonal(content string) (*User, string, bool) {
+	args := strings.Split(content, "|")
+	if len(content) > 5 && args[0] == "to" {
+		targetUser, isUserExist := user.server.onlineMap[args[1]]
+		if isUserExist {
+			userMsg := strings.Join(args[2:], "")
+			return targetUser, userMsg, true
+		}
+		return nil, "", false
+
+	}
+	return nil, "", false
 }
