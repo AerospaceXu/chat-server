@@ -75,8 +75,16 @@ func (user *User) sendMessage(content string) {
 		if len(newUserName) < 2 {
 			user.showMessage("用户名至少为 2 个字符！！！")
 		} else {
-			user.name = newUserName
-			user.showMessage("修改成功！")
+			if _, isUserExist := user.server.onlineMap[newUserName]; isUserExist {
+				user.showMessage("用户名已被占用，请重新输入！！！")
+			} else {
+				user.server.mapLock.Lock()
+				delete(user.server.onlineMap, user.name)
+				user.server.onlineMap[newUserName] = user
+				user.server.mapLock.Unlock()
+				user.showMessage("修改成功！")
+				user.name = newUserName
+			}
 		}
 	} else {
 		user.server.broadMessage(user, content)
