@@ -1,7 +1,6 @@
-package server
+package controller
 
 import (
-	"chat-server/user"
 	"fmt"
 	"io"
 	"net"
@@ -12,7 +11,7 @@ import (
 type Server struct {
 	ip        string
 	port      int
-	onlineMap map[string]*user.User
+	onlineMap map[string]*User
 	mapLock   sync.RWMutex
 	message   chan string
 }
@@ -22,7 +21,7 @@ func NewServer(ip string, port int) *Server {
 	return &Server{
 		ip:        ip,
 		port:      port,
-		onlineMap: make(map[string]*user.User),
+		onlineMap: make(map[string]*User),
 		message:   make(chan string, 10),
 	}
 }
@@ -53,21 +52,16 @@ func (server *Server) Start() {
 
 // handleUserLogin deal user login
 func (server *Server) handleUserLogin(connection net.Conn) {
-	user := user.NewUser(connection)
-	fmt.Println("登录成功", user.Name)
-
-	server.mapLock.Lock()
-	server.onlineMap[user.Name] = user
-	server.mapLock.Unlock()
-
-	server.broadMessage(user, "已上线")
+	user := NewUser(connection, server)
+	fmt.Println("登录成功", user.name)
+	user.online()
 
 	go func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := connection.Read(buf)
 			if n == 0 {
-				server.broadMessage(user, "下线")
+				user.offline()
 				return
 			}
 
@@ -78,7 +72,7 @@ func (server *Server) handleUserLogin(connection net.Conn) {
 
 			msg := string(buf[:n-1])
 
-			server.broadMessage(user, msg)
+			user.sendMessage(msg)
 		}
 	}()
 
@@ -86,9 +80,9 @@ func (server *Server) handleUserLogin(connection net.Conn) {
 }
 
 // broadMessage 向当前 user 的 channel 中广播消息
-func (server *Server) broadMessage(currentUser *user.User, msg string) {
+func (server *Server) broadMessage(currentUser *User, msg string) {
 	currentMsg :=
-		"[" + currentUser.Name + "] " + currentUser.Address + ": " + msg
+		"[" + currentUser.name + "] " + currentUser.address + ": " + msg
 	server.message <- currentMsg
 }
 
@@ -99,7 +93,7 @@ func (server *Server) listenMessages() {
 		if ok {
 			server.mapLock.Lock()
 			for _, user := range server.onlineMap {
-				userChannel := user.Channel
+				userChannel := user.channel
 				userChannel <- msg
 			}
 			server.mapLock.Unlock()
