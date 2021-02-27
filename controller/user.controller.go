@@ -35,11 +35,16 @@ func NewUser(connection net.Conn, server *Server) *User {
 func (user *User) listenMessage() {
 	for {
 		msg := <-user.channel
-
-		user.connection.Write([]byte(msg + "\n"))
+		user.showMessage(msg + "\n")
 	}
 }
 
+// showMessage show message in user`s interface
+func (user *User) showMessage(content string) {
+	user.connection.Write([]byte(content + "\n"))
+}
+
+// online user online system
 func (user *User) online() {
 	user.server.mapLock.Lock()
 	user.server.onlineMap[user.name] = user
@@ -47,6 +52,7 @@ func (user *User) online() {
 	user.server.broadMessage(user, "已上线")
 }
 
+// offline user offline system
 func (user *User) offline() {
 	user.server.mapLock.Lock()
 	delete(user.server.onlineMap, user.name)
@@ -54,6 +60,18 @@ func (user *User) offline() {
 	user.server.broadMessage(user, "已下线")
 }
 
+// sendMessage user sendMessage to everybody
 func (user *User) sendMessage(content string) {
-	user.server.broadMessage(user, content)
+	switch content {
+	case "who":
+		onlineUsers := ""
+		user.server.mapLock.Lock()
+		for _, onlineUser := range user.server.onlineMap {
+			onlineUsers += "[" + onlineUser.name + "] 在线\n"
+		}
+		user.server.mapLock.Unlock()
+		user.showMessage(onlineUsers)
+	default:
+		user.server.broadMessage(user, content)
+	}
 }
