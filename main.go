@@ -1,8 +1,8 @@
 package main
 
-import "chat-server/controller"
+import "chat-server/server"
 
 func main() {
-	app := controller.NewServer("192.168.31.249", 8000)
-	app.Start()
+	appServer := server.CreateServer("localhost", 8000)
+	appServer.Start()
 }
